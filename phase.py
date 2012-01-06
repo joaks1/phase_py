@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import dendropy
 import sys
 import itertools
@@ -24,9 +25,9 @@ def phase_sequences(data_set):
     ambig_dict = {'M' : ['A', 'C'], 'R' : ['A', 'G'], 'W' : ['A', 'T'], 'S' : ['C', 'G'], 'Y' : ['C', 'T'], 'K' : ['G', 'T']}
     no_data_pattern = re.compile(r'^[?\-NX]+$')
     clean_pattern = re.compile(r'^[?\-NX]*[ACGT?\-NX]+[?\-NX]*$')
-    two_state_pattern = re.compile(r'([MRWSYK]+)')
-    three_state_pattern = re.compile(r'([VHDB]+)')
-    ambig_pattern = re.compile(r'([MRWSYKVHDB]+)')
+    two_state_pattern = re.compile(r'([MRWSYK])')
+    two_plus_state_pattern = re.compile(r'([VHDBN])')
+    ambig_pattern = re.compile(r'([MRWSYKVHDBN])')
     ds = dendropy.DataSet()
     for matrix in data_set.char_matrices:
         sys.stdout.write("\n### Parsing character matrix '%s' ###\n" % matrix.label)
@@ -44,9 +45,9 @@ def phase_sequences(data_set):
                 m.extend(temp_matrix)
             elif ambig_pattern.search(s):
                 ambigs2 = two_state_pattern.findall(s)
-                ambigs3 = three_state_pattern.findall(s)
+                ambigs3 = two_plus_state_pattern.findall(s)
                 if ambigs3:
-                    sys.stdout.write("WARNING: 3-state ambiguity found in '%s'\n" % seq[0].label)
+                    sys.stdout.write("WARNING!: Greater than 2-state ambiguity found in '%s'\n" % seq[0].label)
                 all_ambigs = ambig_pattern.findall(s)
                 assert len(all_ambigs) == len(ambigs2) + len(ambigs3)
                 total = len(all_ambigs)
@@ -72,7 +73,7 @@ def phase_sequences(data_set):
                     message += "Found %d ambiguities (%s) in taxon '%s'... sequences FLAGGED\n" % (total, str(indices), seq[0].label)
                 sys.stdout.write(message)
             else:
-                _LOG.info("Unexpected site pattern found in taxon '%s' in matrix '%s':\n%s\n" % (seq[0].label, matrix.label, s))
+                _LOG.error("Unexpected site pattern found in taxon '%s' in matrix '%s':\n%s\n" % (seq[0].label, matrix.label, s))
                 sys.exit()
         m.label = matrix.label
         ds.add_char_matrix(m)
@@ -88,9 +89,9 @@ def get_indices(target_list, set_of_elements):
     return indices
     
 
-def write_files(data_set, schema='nexus'):
+def write_files(data_set, schema='nexus', extension=''):
     for matrix in data_set.char_matrices:
-        path = "%s%s" % (matrix.label, '.phased')
+        path = "%s%s" % (matrix.label, extension)
         taxon_labels = matrix.taxon_set.labels()
         taxon_labels.sort()
         ts_sort = dendropy.TaxonSet(taxon_labels)
@@ -98,25 +99,32 @@ def write_files(data_set, schema='nexus'):
         matrix.write_to_path(path, schema=schema, simple=True)
 
 if __name__ == '__main__':
+    valid_schemas = ['nexus', 'phylip', 'fasta']
     from optparse import OptionParser
     usage = "Usage: %prog [ -v --schema=< nexus | phylip | fasta > ] data_file1 [ data_file2 data_file3 ...]"
     parser = OptionParser(usage = usage)
     parser.add_option("-v", "--verbose", dest="verbose", default=False, 
         action="store_true",
         help="Verbose output")
+    parser.add_option("-d", "--debugging", dest="debugging", default=False, 
+        action="store_true",
+        help="Run in debugging mode.")
     parser.add_option("--schema", dest="schema", default="nexus", 
         action="store",
         type="string",
-        help="File with taxon labels (separated by hard returns) for tips to keep")
+        help="File format. Default is nexus. Valid options: %s" % ", ".join(valid_schemas))
     (options, args) = parser.parse_args()
 
-    if options.verbose:
+    if options.debugging or (options.debugging and options.verbose):
+        _LOG.setLevel(logging.DEBUG)
+    elif options.verbose:
         _LOG.setLevel(logging.INFO)
+    else:
+        _LOG.setLevel(logging.WARNING)
 
     if not args:
         sys.exit("Expecting a data file name")
     
-    valid_schemas = ['nexus', 'phylip', 'fasta']
     schema = options.schema
     if schema.lower() not in valid_schemas:
         sys.exit("Schema provided is not valid.\nValid options are: %s\nYou provided: %s\n" % (", ".join(valid_schemas), schema))
@@ -125,5 +133,6 @@ if __name__ == '__main__':
     
     new_data_set = phase_sequences(data_set)
     
-    write_files(new_data_set, schema)
+    write_files(new_data_set, schema, extension='.phased')
+    #write_files(data_set)
     
