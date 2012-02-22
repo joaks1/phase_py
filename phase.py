@@ -22,7 +22,12 @@ def parse_data_files(list_of_paths, schema='nexus'):
 
 def phase_sequences(data_set):
     # '-?ACBDGHKMNSRTWVYXacbdghkmnsrtwvyx'
-    ambig_dict = {'M' : ['A', 'C'], 'R' : ['A', 'G'], 'W' : ['A', 'T'], 'S' : ['C', 'G'], 'Y' : ['C', 'T'], 'K' : ['G', 'T']}
+    ambig_dict = {'M' : ['A', 'C'],
+                  'R' : ['A', 'G'],
+                  'W' : ['A', 'T'],
+                  'S' : ['C', 'G'],
+                  'Y' : ['C', 'T'],
+                  'K' : ['G', 'T']}
     no_data_pattern = re.compile(r'^[?\-NX]+$')
     clean_pattern = re.compile(r'^[?\-NX]*[ACGT?\-NX]+[?\-NX]*$')
     two_state_pattern = re.compile(r'([MRWSYK])')
