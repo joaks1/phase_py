@@ -7,7 +7,7 @@ import logging
 logging.basicConfig(level=logging.WARNING)
 _LOG = logging.getLogger('phase')
 
-def parse_data_files(list_of_paths, schema='nexus'):
+def parse_data_files(list_of_paths, schema='nexus', data_type='dna'):
     ds = dendropy.DataSet()
     for path_name in list_of_paths:
         try:
@@ -15,7 +15,16 @@ def parse_data_files(list_of_paths, schema='nexus'):
         except IOError as e:
             sys.exit("Cannot open file '%s':\n%s\n" % (path_name, e))
         _LOG.info("Reading data from '%s'...\n" % stream.name)
-        char_matrix = dendropy.DnaCharacterMatrix.get_from_stream(stream, schema = schema, preserve_underscores=True)
+        tmp_ds = dendropy.DataSet()
+        tmp_ds.read(stream = stream,
+                schema = schema.lower(),
+                preserve_underscores = True,
+                data_type = data_type.lower())
+        if len(tmp_ds.char_matrices) > 1:
+            _LOG.warn("Found more than 1 character matrix in " + \
+                      "'%s'; only using the first!\n" % stream.name)
+        stream.close()
+        char_matrix = tmp_ds.char_matrices[0]
         char_matrix.label = path_name
         ds.add_char_matrix(char_matrix)
     return ds
